@@ -12,7 +12,8 @@
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "build:analyze": "ANALYZE=true next build",
-    "clean": "rm -rf .next out node_modules/.cache"
+    "clean": "rm -rf .next out node_modules/.cache",
+    "postinstall": "npm rebuild sharp"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.470.0",
