@@ -1,0 +1,14 @@
+module.exports = {
+  extends: 'next/core-web-vitals',
+  rules: {
+    '@typescript-eslint/no-unused-vars': 'off',
+    '@typescript-eslint/no-explicit-any': 'off',
+    'react-hooks/rules-of-hooks': 'off',
+    'react/no-unescaped-entities': 'off'
+  },
+  ignorePatterns: [
+    'src/app/animation/**/*.tsx',  // Ignore animation folder files
+    'src/app/[id]/**/*.tsx',       // Ignore [id] folder files
+    'src/types/**/*.ts'            // Ignore type definitions
+  ]
+};
