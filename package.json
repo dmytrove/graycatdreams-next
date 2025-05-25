@@ -3,7 +3,13 @@
   "version": "0.2.0",
   "private": true,
   "description": "Create beautiful 3D animations with your images using WebGL and Three.js",
-  "keywords": ["3D animation", "image gallery", "WebGL", "Three.js", "interactive art"],
+  "keywords": [
+    "3D animation",
+    "image gallery",
+    "WebGL",
+    "Three.js",
+    "interactive art"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
