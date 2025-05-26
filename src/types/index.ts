@@ -31,6 +31,14 @@ export interface AnimationOptions {
   // Interaction (functional)
   objectInteraction: boolean;     // ✅ Enables mouse interaction
   
+  // Fog & Atmosphere (new!)
+  fogEnabled: boolean;            // ✅ Enables atmospheric fog effects
+  fogType: number;                // ✅ Fog calculation type (0-2)
+  fogColor: string;               // ✅ Fog color (hex)
+  fogNear: number;                // ✅ Fog start distance (linear fog)
+  fogFar: number;                 // ✅ Fog end distance (linear fog)
+  fogDensity: number;             // ✅ Fog density (exponential fog)
+  
   // Legacy/unused controls (kept for API compatibility but not exposed in UI)
   orbitDistance: number;          // ❌ Not implemented in current scene
   attractionForce: number;        // ❌ Not implemented in current scene
@@ -70,6 +78,14 @@ export const DEFAULT_ANIMATION_OPTIONS: AnimationOptions = {
   // Interaction
   objectInteraction: false,
   
+  // Fog & Atmosphere (disabled by default)
+  fogEnabled: false,
+  fogType: 0, // Linear fog
+  fogColor: '#222222',
+  fogNear: 10,
+  fogFar: 50,
+  fogDensity: 0.02,
+  
   // Legacy (kept for compatibility)
   orbitDistance: 3,
   attractionForce: 0.02,
@@ -108,12 +124,23 @@ export interface UploadMetadata {
   imageId: string;
   session_id: string | null;
   timestamp: number;
+  customName?: string; // Optional custom name for admin mode
+}
+
+// Admin-related types
+export interface AdminCredentials {
+  adminSecret: string;
+}
+
+export interface AdminSessionOptions {
+  customId?: string; // Custom ID for creating a custom-named session
 }
 
 // Session data interface
 export interface SessionData {
   images: UploadMetadata[];
   options: AnimationOptions;
+  customName?: string; // Optional custom name for admin mode
 }
 
 // Component prop interfaces
@@ -155,6 +182,7 @@ export const MOVEMENT_TEMPLATES = [
 ] as const;
 
 export type MovementTemplate = typeof MOVEMENT_TEMPLATES[number];
+export type FogPreset = typeof FOG_PRESETS[number];
 
 // Movement template descriptions
 export const MOVEMENT_DESCRIPTIONS = [
@@ -202,6 +230,31 @@ export const LIGHTING_COLORS = [
   '#74c0fc', // Moonlight - Light Blue
 ] as const;
 
+// Fog type names and descriptions
+export const FOG_TYPES = [
+  'Linear',      // 0 - Distance-based linear fog
+  'Exponential', // 1 - Exponential fog calculation
+  'Exp²',        // 2 - Exponential squared fog
+] as const;
+
+export type FogType = typeof FOG_TYPES[number];
+
+export const FOG_DESCRIPTIONS = [
+  'Linear fog with defined start and end distances',
+  'Exponential fog with density-based calculation', 
+  'Exponential squared fog for dramatic depth effects',
+] as const;
+
+// Fog color presets that work well with lighting modes
+export const FOG_PRESETS = [
+  { name: 'Soft Gray', color: '#666666', description: 'Subtle atmospheric depth' },
+  { name: 'Deep Blue', color: '#1a237e', description: 'Ocean depths or night sky' },
+  { name: 'Warm Amber', color: '#ff8f00', description: 'Sunset or golden hour atmosphere' },
+  { name: 'Cool Cyan', color: '#00acc1', description: 'Icy or futuristic ambiance' },
+  { name: 'Purple Haze', color: '#7b1fa2', description: 'Mystical or dreamy effect' },
+  { name: 'Smoke Gray', color: '#424242', description: 'Industrial or smoky atmosphere' },
+] as const;
+
 // API response interfaces
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -236,6 +289,12 @@ export const FUNCTIONAL_CONTROLS = [
   'parallaxSpeed',
   'parallaxInterval',
   'objectInteraction',
+  'fogEnabled',
+  'fogType', 
+  'fogColor',
+  'fogNear',
+  'fogFar',
+  'fogDensity',
 ] as const;
 
 export const LEGACY_CONTROLS = [

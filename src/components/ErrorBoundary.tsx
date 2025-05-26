@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Enhanced Error Boundary with better error handling and logging
  */

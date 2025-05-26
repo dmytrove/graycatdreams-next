@@ -4,10 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { RateLimit } from './rate-limit';
+import { getEnvConfig } from './env';
 
 export interface ApiContext {
   sessionId: string;
   request: NextRequest;
+  isAdmin: boolean; // Added admin state flag
 }
 
 export type ApiHandler = (
@@ -30,6 +32,28 @@ function getClientIdentifier(request: NextRequest): string {
   // For additional uniqueness, combine with user agent
   const userAgent = request.headers.get('user-agent') || '';
   return `${ip}-${userAgent.slice(0, 50)}`;
+}
+
+// Admin authentication check
+function isAdminRequest(request: NextRequest): boolean {
+  const env = getEnvConfig();
+  
+  if (!env.ADMIN_SECRET) {
+    return false; // No admin secret configured
+  }
+
+  // Check for admin secret in Authorization header (Bearer token)
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    return token === env.ADMIN_SECRET;
+  }
+
+  // Also check for admin secret in 'admin-secret' query parameter
+  const url = new URL(request.url);
+  const adminSecret = url.searchParams.get('admin-secret');
+  
+  return adminSecret === env.ADMIN_SECRET;
 }
 
 export function createApiHandler(
@@ -75,21 +99,24 @@ export function createApiHandler(
         }
       }
 
+      // Admin authentication check
+      const isAdmin = isAdminRequest(request);
+
       // Authentication
       let sessionId = '';
       if (requireAuth) {
         const sessionCookie = request.cookies.get('session_id');
-        if (!sessionCookie?.value) {
+        if (!sessionCookie?.value && !isAdmin) {
           return NextResponse.json(
             { error: 'Authentication required' },
             { status: 401 }
           );
         }
-        sessionId = sessionCookie.value;
+        sessionId = sessionCookie?.value || '';
       }
 
       // Call the actual handler
-      const context: ApiContext = { sessionId, request };
+      const context: ApiContext = { sessionId, request, isAdmin };
       return await handler(context);
 
     } catch (error) {

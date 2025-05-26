@@ -42,9 +42,15 @@ function getS3Client(): S3Client {
 }
 
 const uploadHandler = createApiHandler(
-  async ({ request, sessionId }) => {
+  async ({ request, sessionId, isAdmin }) => {
     const formData = await request.formData();
     const files = formData.getAll('file').filter(Boolean) as File[];
+    
+    // Check for custom name (admin only)
+    let customName = formData.get('customName') as string | null;
+    if (customName && !isAdmin) {
+      customName = null; // Only allow admins to set custom names
+    }
     
     if (files.length === 0) {
       return new NextResponse(
@@ -60,7 +66,16 @@ const uploadHandler = createApiHandler(
       );
     }
 
-    const sessionData = await getSessionData(sessionId);
+    // Use customName as sessionId if provided by admin
+    const effectiveSessionId = (isAdmin && customName) ? customName : sessionId;
+    
+    const sessionData = await getSessionData(effectiveSessionId);
+    
+    // If admin provided a custom name, store it in session data
+    if (isAdmin && customName) {
+      sessionData.customName = customName;
+    }
+    
     const uploadedUrls: string[] = [];
     const errors: string[] = [];
     const s3 = getS3Client();
@@ -104,7 +119,7 @@ const uploadHandler = createApiHandler(
         
         // Generate unique image ID
         const imageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const imagePath = getImagePath(sessionId, imageId);
+        const imagePath = getImagePath(effectiveSessionId, imageId);
         
         // Upload to R2
         await s3.send(new PutObjectCommand({
@@ -117,17 +132,19 @@ const uploadHandler = createApiHandler(
             'original-name': file.name,
             'original-type': file.type,
             'original-size': file.size.toString(),
-            'session-id': sessionId,
+            'session-id': effectiveSessionId,
             'upload-time': new Date().toISOString(),
+            ...(customName && { 'custom-name': customName }),
           },
         }));
         
-        const url = getImagePublicUrl(sessionId, imageId);
+        const url = getImagePublicUrl(effectiveSessionId, imageId);
         const newEntry: UploadMetadata = { 
           url, 
           imageId, 
-          session_id: sessionId, 
-          timestamp: Date.now() 
+          session_id: effectiveSessionId,
+          timestamp: Date.now(),
+          ...(customName && { customName }),
         };
         
         sessionData.images.push(newEntry);
@@ -140,7 +157,7 @@ const uploadHandler = createApiHandler(
 
     // Save updated session data
     if (uploadedUrls.length > 0) {
-      await setSessionData(sessionId, sessionData);
+      await setSessionData(effectiveSessionId, sessionData);
     }
 
     // Return results

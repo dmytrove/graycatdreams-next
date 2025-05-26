@@ -392,6 +392,115 @@
   transform: scale(1.02);
 }
 
+/* Fog Controls Styles */
+.colorPresetRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.colorPresets {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.colorPresetButton {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--fallback-color, #666666);
+  position: relative;
+  overflow: hidden;
+}
+
+.colorPresetButton:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(102, 204, 255, 0.4);
+}
+
+.colorPresetButton:active {
+  transform: scale(1.1);
+}
+
+.fogInfo {
+  background: rgba(139, 92, 246, 0.1);
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius-sm);
+  border-left: 3px solid #8b5cf6;
+  margin-top: var(--spacing-xs);
+}
+
+.fogInfo small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  display: block;
+}
+
+/* Enhanced color picker for fog */
+.colorPicker {
+  width: 60px;
+  height: 32px;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.colorPicker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: var(--border-radius-sm);
+}
+
+.colorPicker::-webkit-color-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.colorPicker:hover::-webkit-color-swatch {
+  border-color: var(--color-primary);
+  transform: scale(1.02);
+}
+
+.colorPicker::-moz-color-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.colorPicker:hover::-moz-color-swatch {
+  border-color: var(--color-primary);
+  transform: scale(1.02);
+}
+
+/* Responsive fog controls */
+@media (max-width: 600px) {
+  .colorPresetRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-xs);
+  }
+  
+  .colorPresets {
+    justify-content: center;
+  }
+  
+  .colorPresetButton {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .categoryIcon,
@@ -399,7 +508,8 @@
   .compactRange::-moz-range-thumb,
   .colorPicker,
   .colorPicker::-webkit-color-swatch,
-  .colorPicker::-moz-color-swatch {
+  .colorPicker::-moz-color-swatch,
+  .colorPresetButton {
     transition: none;
   }
 }

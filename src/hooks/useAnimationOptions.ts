@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback, useRef } from 'react';
 import { AnimationOptions, DEFAULT_ANIMATION_OPTIONS } from '@/types';
 

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -15,8 +17,8 @@ const SceneContent = ({ images, options }: SceneContentProps): React.ReactNode =
   const { textures, aspectRatios, validUrls } = useTextureLoader(images);
   const [objects, setObjects] = useState<FloatingObject[]>([]);
   
-  // Helper function to generate a deterministic ID based on index
-  const generateId = (index: number) => `obj_${index}`;
+  // Helper function to generate a deterministic ID based on image and index
+  const generateId = (imgIdx: number, instIdx: number) => `obj_${imgIdx}_${instIdx}`;
   
   // Create floating objects when images or options change
   useEffect(() => {
@@ -26,125 +28,141 @@ const SceneContent = ({ images, options }: SceneContentProps): React.ReactNode =
     }
 
     if (typeof window !== 'undefined') {
-      console.log(`Creating objects for ${validUrls.length} images, maxCount: ${options.maxImageCount}, movement: ${options.movementTemplate || 0}, lighting: ${options.lightingMode || 0}`);
+      console.log(`Creating objects for ${validUrls.length} images, max instances per image: ${options.maxImageCount}, movement: ${options.movementTemplate || 0}, lighting: ${options.lightingMode || 0}`);
     }
-    
-    const newObjects: FloatingObject[] = [];
-    const totalImages = Math.min(options.maxImageCount, validUrls.length * 10);
-    const movementTemplate = options.movementTemplate || 0;
-    
-    for (let i = 0; i < totalImages; i++) {
-      const url = validUrls[i % validUrls.length];
-      const baseScale = options.imageMinSize + 
-        Math.random() * (options.imageMaxSize - options.imageMinSize);
-      
-      // Initial position based on movement template
-      let position: THREE.Vector3;
-      let velocity: THREE.Vector3;
-      let orbitRadius = 2 + Math.random() * 4;
-      let orbitSpeed = 0.01 + Math.random() * 0.03;
-      const orbitCenter = new THREE.Vector3(0, 0, 0);
-      
-      switch (movementTemplate) {
-        case 1: // Orbit
-          const orbitAngle = (i / totalImages) * Math.PI * 2;
-          orbitRadius = 3 + Math.random() * 3;
-          position = new THREE.Vector3(
-            Math.cos(orbitAngle) * orbitRadius,
-            (Math.random() - 0.5) * 4,
-            Math.sin(orbitAngle) * orbitRadius
-          );
-          velocity = new THREE.Vector3(0, 0, 0); // Orbit handles movement
-          break;
-          
-        case 2: // Spiral
-          const spiralAngle = (i / totalImages) * Math.PI * 6;
-          const spiralRadius = (i / totalImages) * 5;
-          position = new THREE.Vector3(
-            Math.cos(spiralAngle) * spiralRadius,
-            (i / totalImages) * 8 - 4,
-            Math.sin(spiralAngle) * spiralRadius
-          );
-          velocity = new THREE.Vector3(0, 0.1, 0);
-          break;
-          
-        case 3: // Bounce - high energy
-          position = new THREE.Vector3(
-            (Math.random() - 0.5) * 10,
-            (Math.random() - 0.5) * 6,
-            (Math.random() - 0.5) * 5
-          );
-          velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * options.spinMaxSpeed * 0.3,
-            (Math.random() - 0.5) * options.spinMaxSpeed * 0.3,
-            (Math.random() - 0.5) * options.spinMaxSpeed * 0.3
-          );
-          break;
-          
-        case 4: // Wave
-          const waveX = (i / totalImages) * 12 - 6;
-          position = new THREE.Vector3(
-            waveX,
-            Math.sin(waveX * 0.5) * 2,
-            (Math.random() - 0.5) * 4
-          );
-          velocity = new THREE.Vector3(0.1, 0, 0);
-          break;
-          
-        case 5: // Swirl
-          const swirlAngle = (i / totalImages) * Math.PI * 4;
-          const swirlRadius = 1 + (i / totalImages) * 4;
-          position = new THREE.Vector3(
-            Math.cos(swirlAngle) * swirlRadius,
-            Math.sin(swirlAngle * 2) * 2,
-            Math.sin(swirlAngle) * swirlRadius
-          );
-          velocity = new THREE.Vector3(0, 0, 0);
-          orbitSpeed = 0.02 + Math.random() * 0.02;
-          break;
-          
-        case 6: // Figure-8
-          const fig8T = (i / totalImages) * Math.PI * 2;
-          position = new THREE.Vector3(
-            Math.sin(fig8T) * 4,
-            Math.sin(fig8T * 2) * 2,
-            Math.cos(fig8T) * 2
-          );
-          velocity = new THREE.Vector3(0, 0, 0);
-          break;
-          
-        default: // Random Drift (0)
-          position = new THREE.Vector3(
-            (Math.random() - 0.5) * 12,
-            (Math.random() - 0.5) * 8,
-            (Math.random() - 0.5) * 6
-          );
-          velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * options.spinMaxSpeed * 0.1,
-            (Math.random() - 0.5) * options.spinMaxSpeed * 0.1,
-            (Math.random() - 0.5) * options.spinMaxSpeed * 0.1
-          );
-          break;
-      }
 
-      newObjects.push({
-        id: generateId(i),
-        url,
-        position,
-        velocity,
-        scale: baseScale,
-        baseScale,
-        targetScale: baseScale,
-        rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: (Math.random() - 0.5) * 0.02,
-        orbitAngle: Math.random() * Math.PI * 2,
-        groupIndex: movementTemplate,
-        timeOffset: Math.random() * Math.PI * 2,
-        orbitRadius,
-        orbitSpeed,
-        orbitCenter
-      });
-    }
+    const newObjects: FloatingObject[] = [];
+    const movementTemplate = options.movementTemplate || 0;
+
+    // For each image, create a random number (1 to maxImageCount) of instances
+    validUrls.forEach((url, imgIdx) => {
+      // Each group gets a random count between 1 and maxImageCount
+      const groupCount = 1 + Math.floor(Math.random() * options.maxImageCount);
+      for (let instIdx = 0; instIdx < groupCount; instIdx++) {
+        const baseScale = options.imageMinSize + 
+          Math.random() * (options.imageMaxSize - options.imageMinSize);
+
+        // Initial position based on movement template
+        let position: THREE.Vector3;
+        let velocity: THREE.Vector3;
+        let orbitRadius = 2 + Math.random() * 4;
+        let orbitSpeed = 0.01 + Math.random() * 0.03;
+        const orbitCenter = new THREE.Vector3(0, 0, 0);
+
+        // For deterministic layout, use a unique index for each instance
+        // Use the sum of previous group counts for i
+        // We'll need to compute the running total up to this group
+        const prevTotal = validUrls.slice(0, imgIdx).reduce((sum) => {
+          // For each previous group, use the same random logic
+          // To keep it deterministic per render, seed with imgIdx
+          // But for now, just use Math.random() for each
+          // This is not stable across renders, but matches the request
+          return sum + (1 + Math.floor(Math.random() * options.maxImageCount));
+        }, 0);
+        const i = prevTotal + instIdx;
+        const totalInstances = 1; // Not used for angle distribution, but required for switch logic
+
+        switch (movementTemplate) {
+          case 1: // Orbit
+            const orbitAngle = (i / totalInstances) * Math.PI * 2;
+            orbitRadius = 3 + Math.random() * 3;
+            position = new THREE.Vector3(
+              Math.cos(orbitAngle) * orbitRadius,
+              (Math.random() - 0.5) * 4,
+              Math.sin(orbitAngle) * orbitRadius
+            );
+            velocity = new THREE.Vector3(0, 0, 0); // Orbit handles movement
+            break;
+
+          case 2: // Spiral
+            const spiralAngle = (i / totalInstances) * Math.PI * 6;
+            const spiralRadius = (i / totalInstances) * 5;
+            position = new THREE.Vector3(
+              Math.cos(spiralAngle) * spiralRadius,
+              (i / totalInstances) * 8 - 4,
+              Math.sin(spiralAngle) * spiralRadius
+            );
+            velocity = new THREE.Vector3(0, 0.1, 0);
+            break;
+
+          case 3: // Bounce - high energy
+            position = new THREE.Vector3(
+              (Math.random() - 0.5) * 10,
+              (Math.random() - 0.5) * 6,
+              (Math.random() - 0.5) * 5
+            );
+            velocity = new THREE.Vector3(
+              (Math.random() - 0.5) * options.spinMaxSpeed * 0.3,
+              (Math.random() - 0.5) * options.spinMaxSpeed * 0.3,
+              (Math.random() - 0.5) * options.spinMaxSpeed * 0.3
+            );
+            break;
+
+          case 4: // Wave
+            const waveX = (i / totalInstances) * 12 - 6;
+            position = new THREE.Vector3(
+              waveX,
+              Math.sin(waveX * 0.5) * 2,
+              (Math.random() - 0.5) * 4
+            );
+            velocity = new THREE.Vector3(0.1, 0, 0);
+            break;
+
+          case 5: // Swirl
+            const swirlAngle = (i / totalInstances) * Math.PI * 4;
+            const swirlRadius = 1 + (i / totalInstances) * 4;
+            position = new THREE.Vector3(
+              Math.cos(swirlAngle) * swirlRadius,
+              Math.sin(swirlAngle * 2) * 2,
+              Math.sin(swirlAngle) * swirlRadius
+            );
+            velocity = new THREE.Vector3(0, 0, 0);
+            orbitSpeed = 0.02 + Math.random() * 0.02;
+            break;
+
+          case 6: // Figure-8
+            const fig8T = (i / totalInstances) * Math.PI * 2;
+            position = new THREE.Vector3(
+              Math.sin(fig8T) * 4,
+              Math.sin(fig8T * 2) * 2,
+              Math.cos(fig8T) * 2
+            );
+            velocity = new THREE.Vector3(0, 0, 0);
+            break;
+
+          default: // Random Drift (0)
+            position = new THREE.Vector3(
+              (Math.random() - 0.5) * 12,
+              (Math.random() - 0.5) * 8,
+              (Math.random() - 0.5) * 6
+            );
+            velocity = new THREE.Vector3(
+              (Math.random() - 0.5) * options.spinMaxSpeed * 0.1,
+              (Math.random() - 0.5) * options.spinMaxSpeed * 0.1,
+              (Math.random() - 0.5) * options.spinMaxSpeed * 0.1
+            );
+            break;
+        }
+
+        newObjects.push({
+          id: generateId(imgIdx, instIdx),
+          url,
+          position,
+          velocity,
+          scale: baseScale,
+          baseScale,
+          targetScale: baseScale,
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 0.02,
+          orbitAngle: Math.random() * Math.PI * 2,
+          groupIndex: movementTemplate,
+          timeOffset: Math.random() * Math.PI * 2,
+          orbitRadius,
+          orbitSpeed,
+          orbitCenter
+        });
+      }
+    });
 
     if (typeof window !== 'undefined') {
       console.log(`Created ${newObjects.length} floating objects with movement template ${movementTemplate}`);

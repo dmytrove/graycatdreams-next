@@ -8,6 +8,7 @@ export interface EnvConfig {
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET: string;
   NODE_ENV: 'development' | 'production' | 'test';
+  ADMIN_SECRET?: string; // Admin authentication secret
 }
 
 export function validateEnv(): EnvConfig {
@@ -32,7 +33,8 @@ export function validateEnv(): EnvConfig {
     R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID!,
     R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY!,
     R2_BUCKET: process.env.R2_BUCKET!,
-    NODE_ENV: (process.env.NODE_ENV as EnvConfig['NODE_ENV']) || 'development'
+    NODE_ENV: (process.env.NODE_ENV as EnvConfig['NODE_ENV']) || 'development',
+    ADMIN_SECRET: process.env.ADMIN_SECRET // Optional, only used for admin mode
   };
 }
 

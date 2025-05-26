@@ -1,4 +1,4 @@
-import { AnimationOptions, UploadResponse, AnimationOptionsResponse } from '@/types';
+import { AnimationOptions, UploadResponse, AnimationOptionsResponse, AdminCredentials, AdminSessionOptions } from '@/types';
 
 class ApiClient {
   private baseUrl: string;
@@ -21,7 +21,6 @@ class ApiClient {
     };
 
     try {
-      console.log(`API Request: ${options.method || 'GET'} ${url}`);
       const response = await fetch(url, config);
       
       if (!response.ok) {
@@ -33,15 +32,12 @@ class ApiClient {
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         }
         
-        console.error(`API Error: ${response.status} - ${errorMessage}`);
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log(`API Success: ${options.method || 'GET'} ${url}`);
       return data;
     } catch (error) {
-      console.error(`API Request Failed: ${url}`, error);
       if (error instanceof Error) {
         throw error;
       }
@@ -71,11 +67,14 @@ class ApiClient {
   }
 
   // File Upload API
-  async uploadFiles(files: File[]): Promise<string[]> {
+  async uploadFiles(files: File[], customName?: string): Promise<string[]> {
     const formData = new FormData();
     files.forEach(file => formData.append('file', file));
-
-    console.log(`Uploading ${files.length} files`);
+    
+    // Add custom name if provided (for admin mode)
+    if (customName) {
+      formData.append('customName', customName);
+    }
     
     const response = await fetch('/api/upload', {
       method: 'POST',
@@ -91,12 +90,101 @@ class ApiClient {
         errorMessage = `Upload failed with status ${response.status}`;
       }
       
-      console.error('Upload Error:', errorMessage);
       throw new Error(errorMessage);
     }
 
     const data: UploadResponse = await response.json();
-    console.log(`Successfully uploaded ${data.urls.length} files`);
+    return data.urls;
+  }
+
+  // Admin API
+  async adminLogin(credentials: AdminCredentials, options?: AdminSessionOptions): Promise<{sessionId: string; isAdmin: boolean}> {
+    try {
+      const response = await this.request<{success: boolean; sessionId: string; isAdmin: boolean}>(
+        '/api/admin/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            adminSecret: credentials.adminSecret,
+            customId: options?.customId
+          }),
+        }
+      );
+      
+      return {
+        sessionId: response.sessionId,
+        isAdmin: response.isAdmin
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  async checkAdminStatus(): Promise<boolean> {
+    try {
+      const response = await this.request<{isAdmin: boolean}>('/api/admin/check');
+      return response.isAdmin;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  // Custom animation name (admin only)
+  async saveCustomAnimationName(sessionId: string, customName: string): Promise<void> {
+    console.log(`Setting custom name for session ${sessionId}: ${customName}`);
+    
+    try {
+      await this.request<{success: boolean}>(
+        `/api/admin/custom-name`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId,
+            customName
+          }),
+        }
+      );
+      console.log('Successfully set custom name');
+    } catch (error) {
+      console.error('Failed to set custom name', error);
+      throw error;
+    }
+  }
+
+  // Upload files with admin credentials
+  async uploadFilesWithAdmin(files: File[], adminSecret: string, customName?: string): Promise<string[]> {
+    const formData = new FormData();
+    files.forEach(file => formData.append('file', file));
+    
+    if (customName) {
+      formData.append('customName', customName);
+    }
+
+    console.log(`Admin uploading ${files.length} files${customName ? ' with custom name' : ''}`);
+    
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${adminSecret}`
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorMessage: string;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || 'Upload failed';
+      } catch {
+        errorMessage = `Upload failed with status ${response.status}`;
+      }
+      
+      console.error('Admin Upload Error:', errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    const data: UploadResponse = await response.json();
+    console.log(`Successfully uploaded ${data.urls.length} files as admin`);
     return data.urls;
   }
 
@@ -146,8 +234,16 @@ export const api = {
   getAnimationOptions: (sessionId: string) => apiClient.getAnimationOptions(sessionId),
   saveAnimationOptions: (sessionId: string, options: AnimationOptions) => 
     apiClient.saveAnimationOptions(sessionId, options),
-  uploadFiles: (files: File[]) => apiClient.uploadFiles(files),
+  uploadFiles: (files: File[], customName?: string) => apiClient.uploadFiles(files, customName),
   deleteImage: (url: string) => apiClient.deleteImage(url),
   getUserImages: () => apiClient.getUserImages(),
   deleteAnimation: (sessionId: string) => apiClient.deleteAnimation(sessionId),
+  // Admin functions
+  adminLogin: (credentials: AdminCredentials, options?: AdminSessionOptions) => 
+    apiClient.adminLogin(credentials, options),
+  checkAdminStatus: () => apiClient.checkAdminStatus(),
+  saveCustomAnimationName: (sessionId: string, customName: string) => 
+    apiClient.saveCustomAnimationName(sessionId, customName),
+  uploadFilesWithAdmin: (files: File[], adminSecret: string, customName?: string) =>
+    apiClient.uploadFilesWithAdmin(files, adminSecret, customName)
 };

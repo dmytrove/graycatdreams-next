@@ -1,16 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
-import "@/styles/globals.css";
-// import { Metadata, Viewport } from "next";
+import "./globals.css";
 import type { Metadata, Viewport } from "next/types";
-// import { AppErrorBoundary } from "@/components/ErrorBoundary";
-
-// Initialize monitoring on client side
-if (typeof window !== 'undefined') {
-  // Dynamic import to avoid SSR issues
-  import('@/lib/monitoring').then(() => {
-    console.log('Production monitoring initialized');
-  });
-}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,11 +26,13 @@ export const viewport: Viewport = {
   themeColor: "#111111",
 };
 
+import Link from 'next/link';
+
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <head>
@@ -53,9 +45,18 @@ export default function RootLayout({
           {children}
         </div>
         
-        {/* Performance hints for browser */}
-        <link rel="preconnect" href="https://pub-7b860cf9a8554e759d05d06688f078b0.r2.dev" />
-        <link rel="dns-prefetch" href="https://pub-7b860cf9a8554e759d05d06688f078b0.r2.dev" />
+        {/* Small admin link in the footer */}
+        <div style={{ 
+          position: 'fixed', 
+          bottom: '10px', 
+          right: '10px', 
+          fontSize: '12px', 
+          opacity: 0.3 
+        }}>
+          <Link href="/admin" title="Admin Access" style={{ color: 'inherit', textDecoration: 'none' }}>
+            •••
+          </Link>
+        </div>
       </body>
     </html>
   );

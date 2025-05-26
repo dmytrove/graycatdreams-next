@@ -18,7 +18,7 @@ import { createApiHandler, addSecurityHeaders } from '@/lib/api-handler';
 import { apiRateLimit } from '@/lib/rate-limit';
 
 const getHandler = createApiHandler(
-  async ({ request, sessionId }) => {
+  async ({ request: _request, sessionId }) => {
     const options = await getAnimationOptions(sessionId);
     const response = NextResponse.json({ options });
     return addSecurityHeaders(response);
@@ -112,15 +112,25 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const session_id = request.nextUrl.searchParams.get('session_id');
-  const cookieSession = request.cookies.get('session_id')?.value || null;
   
-  if (!session_id || !cookieSession || session_id !== cookieSession) {
+  if (!session_id) {
     return new NextResponse(
-      JSON.stringify({ error: 'Unauthorized: Session mismatch' }),
-      { status: 403, headers: CORS_HEADERS }
+      JSON.stringify({ error: 'Missing session_id parameter' }),
+      { status: 400, headers: CORS_HEADERS }
     );
   }
-  const response = await postHandler(request);
+  
+  // Create a modified request with session in context
+  const modifiedRequest = new NextRequest(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: request.body
+  });
+  
+  // Add session to cookies for the handler
+  modifiedRequest.cookies.set('session_id', session_id);
+  
+  const response = await postHandler(modifiedRequest);
   Object.entries(CORS_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
   return response;
 }

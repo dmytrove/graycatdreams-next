@@ -1,38 +1,30 @@
+'use client';
+
 import React, { Suspense, useRef, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ErrorBoundary } from 'react-error-boundary';
-import ErrorFallback from './components/ErrorFallback';
 import PlaceholderSprites from './components/PlaceholderSprites';
 import SceneContent from './components/SceneContent';
 import CameraControls from './components/CameraControls';
-import { ThreeJSErrorBoundary } from '@/components/ErrorBoundary';
+import FogSystem, { getFogBackgroundGradient } from './components/FogSystem';
+import { ThreeJSErrorBoundary } from '@/components/ThreeJSErrorBoundary';
 import { useMemoryManager } from '@/hooks/useMemoryManager';
 import * as THREE from 'three';
-import { DEFAULT_ANIMATION_OPTIONS } from '@/types';
+import { DEFAULT_ANIMATION_OPTIONS, AnimationOptions as TypedAnimationOptions } from '@/types';
 
-// Export types for component props
-export interface AnimationOptions {
-  maxImageCount: number;
-  spinMaxSpeed: number;
-  imageMinSize: number;
-  imageMaxSize: number;
-  objectInteraction: boolean;
-  orbitDistance?: number;
-  attractionForce?: number;
-  orbitSpeed?: number;
-  bounciness?: number;
-  pulsationAmount?: number;
-  pulsationRate?: number;
-  focusedGroup?: number;     // Index of the group to focus on (-1 for overview)
-  cameraSpeed?: number;      // Speed of camera transitions
-  parallaxEnabled?: boolean;
-  parallaxSpeed?: number;
-  parallaxInterval?: number;
+// Emergency fog disabler
+function ForceFogDisable() {
+  const { scene } = useThree();
+  
+  useEffect(() => {
+    scene.fog = null;
+  });
+  
+  return null;
 }
 
 export interface Images3DProps {
   images: string[];
-  options: AnimationOptions;
+  options: TypedAnimationOptions;
 }
 
 // Helper to get a random camera target
@@ -81,7 +73,7 @@ function ParallaxCamera({ enabled, speed, interval }: { enabled: boolean; speed:
 
 // Enhanced Canvas with memory management
 function MemoryManagedCanvas({ children, ...props }: any) {
-  const memoryStats = useMemoryManager();
+  useMemoryManager();
   
   useEffect(() => {
     // Store renderer reference for memory monitoring
@@ -101,8 +93,13 @@ export default function Images3D({ images, options }: Images3DProps) {
   // Remove duplicates
   const uniqueValidImages = Array.from(new Set(validImages));
 
-  // Ensure all required option fields are present
-  const mergedOptions = { ...DEFAULT_ANIMATION_OPTIONS, ...options };
+  // Ensure all required option fields are present and FORCE fog to be disabled by default
+  const mergedOptions = { 
+    ...DEFAULT_ANIMATION_OPTIONS, 
+    ...options,
+    // FORCE fog to be disabled unless explicitly enabled
+    fogEnabled: options?.fogEnabled === true ? true : false
+  };
 
   return (
     <ThreeJSErrorBoundary>
@@ -114,7 +111,7 @@ export default function Images3D({ images, options }: Images3DProps) {
         style={{ 
           width: '100%', 
           height: '100vh', 
-          background: 'linear-gradient(to bottom, #111, #222)',
+          background: 'linear-gradient(to bottom, #111, #222)', // FORCE default background
           position: 'absolute',
           top: 0,
           left: 0,
@@ -127,6 +124,12 @@ export default function Images3D({ images, options }: Images3DProps) {
           preserveDrawingBuffer: false, // Better performance
         }}
       >
+        {/* EMERGENCY: Force disable any fog */}
+        <ForceFogDisable />
+        
+        {/* Fog System - Enhanced atmospheric effects - TEMPORARILY DISABLED FOR DEBUGGING */}
+        {/* <FogSystem options={mergedOptions} /> */}
+        
         <ParallaxCamera
           enabled={!!mergedOptions.parallaxEnabled}
           speed={mergedOptions.parallaxSpeed || 0.03}
@@ -148,8 +151,7 @@ export default function Images3D({ images, options }: Images3DProps) {
             <PlaceholderSprites />
           )}
         </Suspense>
-        {/* Add a subtle fog effect for depth */}
-        <fog attach="fog" args={['#111', 10, 30]} />
+        {/* Fog is now handled by FogSystem component */}
       </MemoryManagedCanvas>
     </ThreeJSErrorBoundary>
   );

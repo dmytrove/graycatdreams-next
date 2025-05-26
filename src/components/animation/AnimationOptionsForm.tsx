@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react';
 import styles from '@/styles/Forms.module.css';
-import { AnimationOptions, AnimationPreset, MOVEMENT_TEMPLATES, MOVEMENT_DESCRIPTIONS, LIGHTING_MODES, LIGHTING_DESCRIPTIONS } from '@/types';
+import { AnimationOptions, AnimationPreset, MOVEMENT_TEMPLATES, MOVEMENT_DESCRIPTIONS, LIGHTING_MODES, LIGHTING_DESCRIPTIONS, FOG_TYPES, FOG_DESCRIPTIONS, FOG_PRESETS } from '@/types';
 
 interface AnimationOptionsFormProps {
   options: AnimationOptions;
@@ -120,8 +120,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     } 
   },
   { 
-    name: 'Moonlit Dreams',
-    description: 'Figure-8 patterns under moonlight',
+    name: 'Moonlit Dreams 🌫️',
+    description: 'Figure-8 patterns under moonlight with atmospheric fog',
     options: { 
       spinMaxSpeed: 1.0, 
       imageMinSize: 1.2, 
@@ -134,7 +134,12 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
       lightingMode: 7, // Moonlight
       ambientIntensity: 0.4,
       lightIntensity: 0.8,
-      animatedLighting: true
+      animatedLighting: true,
+      // Fog settings for mystical atmosphere
+      fogEnabled: true,
+      fogType: 1, // Exponential
+      fogColor: '#1a237e',
+      fogDensity: 0.015,
     } 
   },
   { 
@@ -154,6 +159,53 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
       lightIntensity: 1.0,
       animatedLighting: false
     } 
+  },
+  {
+    name: 'Misty Sunrise 🌫️',
+    description: 'Gentle movement with warm fog and golden lighting',
+    options: {
+      spinMaxSpeed: 0.7,
+      imageMinSize: 1.5,
+      imageMaxSize: 3.0,
+      maxImageCount: 10,
+      pulsationAmount: 0.2,
+      pulsationRate: 0.5,
+      bounciness: 0.4,
+      movementTemplate: 4, // Wave
+      lightingMode: 6, // Golden Hour
+      ambientIntensity: 0.6,
+      lightIntensity: 1.1,
+      animatedLighting: true,
+      // Warm fog for sunrise atmosphere
+      fogEnabled: true,
+      fogType: 0, // Linear
+      fogColor: '#ff8f00',
+      fogNear: 8,
+      fogFar: 35,
+    }
+  },
+  {
+    name: 'Deep Ocean 🌫️',
+    description: 'Underwater feeling with blue fog and flowing motion',
+    options: {
+      spinMaxSpeed: 0.5,
+      imageMinSize: 1.0,
+      imageMaxSize: 2.5,
+      maxImageCount: 12,
+      pulsationAmount: 0.3,
+      pulsationRate: 0.8,
+      bounciness: 0.2,
+      movementTemplate: 4, // Wave
+      lightingMode: 4, // Cool Blue
+      ambientIntensity: 0.7,
+      lightIntensity: 0.6,
+      animatedLighting: false,
+      // Deep blue fog for underwater effect
+      fogEnabled: true,
+      fogType: 2, // Exponential squared
+      fogColor: '#1a237e',
+      fogDensity: 0.025,
+    }
   },
 ];
 
@@ -248,7 +300,7 @@ export const AnimationOptionsForm: React.FC<AnimationOptionsFormProps> = memo(({
         <div className={styles.categoryContent}>
           <CompactSlider
             name="maxImageCount"
-            label="Number of Images"
+            label="Max Number of Instances per Image"
             value={options.maxImageCount}
             min={1}
             max={20}
@@ -454,6 +506,117 @@ export const AnimationOptionsForm: React.FC<AnimationOptionsFormProps> = memo(({
               </div>
             )}
 
+            {/* Fog & Atmosphere Section */}
+            <div className={styles.compactCheckbox}>
+              <input
+                type="checkbox"
+                name="fogEnabled"
+                checked={options.fogEnabled || false}
+                onChange={handleInputChange}
+                id="fogEnabled"
+              />
+              <label htmlFor="fogEnabled">🌫️ Atmospheric Fog</label>
+            </div>
+
+            {options.fogEnabled && (
+              <>
+                {/* Fog Type Selector */}
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel}>
+                    Fog Type: {FOG_TYPES[options.fogType || 0]}
+                  </label>
+                  <select
+                    name="fogType"
+                    value={options.fogType || 0}
+                    onChange={handleInputChange}
+                    className={styles.compactSelect}
+                    title={FOG_DESCRIPTIONS[options.fogType || 0] || 'Fog type description'}
+                  >
+                    {FOG_TYPES.map((name, index) => (
+                      <option key={name} value={index} title={FOG_DESCRIPTIONS[index]}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Fog Color */}
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel}>🎨 Fog Color</label>
+                  <div className={styles.colorPresetRow}>
+                    <input
+                      type="color"
+                      name="fogColor"
+                      value={options.fogColor || '#666666'}
+                      onChange={handleInputChange}
+                      className={styles.colorPicker}
+                      title="Choose fog color"
+                    />
+                    {/* Quick fog color presets */}
+                    <div className={styles.colorPresets}>
+                      {FOG_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          className={styles.colorPresetButton}
+                          style={{ backgroundColor: preset.color }}
+                          onClick={() => onOptionChange({ fogColor: preset.color })}
+                          title={`${preset.name}: ${preset.description}`}
+                          aria-label={`Set fog color to ${preset.name}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fog Parameters based on type */}
+                {(options.fogType === 0) ? (
+                  // Linear fog controls
+                  <div className={styles.compactGrid}>
+                    <CompactSlider
+                      name="fogNear"
+                      label="🔍 Fog Start"
+                      value={options.fogNear || 10}
+                      min={1}
+                      max={30}
+                      step={1}
+                      format={(v) => `${v}m`}
+                    />
+                    <CompactSlider
+                      name="fogFar"
+                      label="🌫️ Fog End"
+                      value={options.fogFar || 50}
+                      min={20}
+                      max={100}
+                      step={5}
+                      format={(v) => `${v}m`}
+                    />
+                  </div>
+                ) : (
+                  // Exponential fog controls
+                  <CompactSlider
+                    name="fogDensity"
+                    label="🌫️ Fog Density"
+                    value={options.fogDensity || 0.02}
+                    min={0.001}
+                    max={0.1}
+                    step={0.001}
+                    format={(v) => v.toFixed(3)}
+                  />
+                )}
+
+                {/* Helpful fog info */}
+                <div className={styles.fogInfo}>
+                  <small>
+                    💡 {FOG_DESCRIPTIONS[options.fogType || 0]}
+                    {options.fogType === 0 && ' Perfect for controlled depth effects.'}
+                    {options.fogType === 1 && ' Great for natural atmospheric effects.'}
+                    {options.fogType === 2 && ' Best for dramatic, cinematic scenes.'}
+                  </small>
+                </div>
+              </>
+            )}
+
             {/* Interaction */}
             <div className={styles.compactCheckbox}>
               <input
@@ -474,7 +637,16 @@ export const AnimationOptionsForm: React.FC<AnimationOptionsFormProps> = memo(({
         <div className={styles.infoText}>
           {imageCount === 0 
             ? "Upload images to start creating animations" 
-            : `Animating ${Math.min(options.maxImageCount, imageCount)} of ${imageCount} images with ${LIGHTING_MODES[options.lightingMode || 0]} lighting`
+            : (
+              <>
+                Max {options.maxImageCount} instances per image, {imageCount} unique images, using {LIGHTING_MODES[options.lightingMode || 0]} lighting.
+                {options.fogEnabled && (
+                  <span style={{ color: '#8b5cf6', fontWeight: 'bold' }}>
+                    {' '}🌫️ Atmospheric fog enabled.
+                  </span>
+                )}
+              </>
+            )
           }
         </div>
       </div>

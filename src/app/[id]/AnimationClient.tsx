@@ -1,65 +1,72 @@
 "use client";
-import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useAnimationOptions } from '@/hooks/useAnimationOptions';
-import { useResponsiveSidebar } from '@/hooks/useResponsiveSidebar';
 import { useVideoRecorder } from '@/hooks/useVideoRecorder';
+import { useAdmin } from '@/context/AdminContext'; // Use the new admin context
 import { ImageGrid } from '@/components/ui/ImageGrid';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { AnimationOptionsForm } from '@/components/animation/AnimationOptionsForm';
+import { ThreeJSErrorBoundary } from '@/components/ThreeJSErrorBoundary';
 import { api } from '@/lib/api/client';
 import { AnimationOptions, DEFAULT_ANIMATION_OPTIONS } from '@/types';
 import styles from './AnimationClient.module.css';
 
+// Loading component for the 3D scene
+const Loading3DScene = () => (
+  <div 
+    style={{
+      width: '100%', 
+      height: '100vh', 
+      background: 'linear-gradient(to bottom, #111, #222)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#fff',
+      fontSize: '1.2rem'
+    }}
+  >
+    <div style={{ animation: 'pulse 2s infinite' }}>Loading 3D scene...</div>
+  </div>
+);
+
 // Dynamically import the 3D component to avoid SSR issues
 const Images3DComponent = dynamic(() => import('./Images3D'), {
   ssr: false,
-  loading: () => (
-    <div 
-      style={{
-        width: '100%', 
-        height: '100vh', 
-        background: 'linear-gradient(to bottom, #111, #222)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-        fontSize: '1.2rem'
-      }}
-    >
-      <div style={{ animation: 'pulse 2s infinite' }}>Loading 3D scene...</div>
-    </div>
-  )
+  loading: () => <Loading3DScene />
 });
 
 interface AnimationClientProps {
   images: string[];
   isAuthor: boolean;
   animationId: string;
+  customName?: string;
 }
 
 export default function AnimationClient({ 
   images, 
   isAuthor, 
-  animationId 
+  animationId,
+  customName: _customName 
 }: AnimationClientProps) {
   // State management
   const [imgList, setImgList] = useState<string[]>(images || []);
-  const [error, setError] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Safely access admin state with error handling
+  const adminContext = useAdmin();
+  const { isAdmin } = adminContext?.adminState || { isAdmin: false };
 
-  // Custom hooks
-  const {
-    leftSidebarOpen,
-    rightSidebarOpen,
-    toggleLeftSidebar,
-    toggleRightSidebar,
-  } = useResponsiveSidebar();
+  // Panel state: only one open at a time, all hidden by default
+  const [openPanel, setOpenPanel] = useState<null | 'images' | 'controls'>(null);
+  const leftSidebarOpen = openPanel === 'images';
+  const rightSidebarOpen = openPanel === 'controls';
+
+  const handleOpenPanel = useCallback((panel: 'images' | 'controls') => {
+    setOpenPanel(prev => (prev === panel ? null : panel));
+  }, []);
 
   const {
-    recording,
-    videoUrl,
-    startRecording,
+    startRecording: _startRecording,
   } = useVideoRecorder();
 
   const saveOptions = useCallback(async (options: AnimationOptions) => {
@@ -75,8 +82,6 @@ export default function AnimationClient({
   const {
     options,
     updateOptions,
-    isSaving,
-    saveError,
   } = useAnimationOptions(DEFAULT_ANIMATION_OPTIONS, saveOptions);
 
   // Load initial options
@@ -87,26 +92,10 @@ export default function AnimationClient({
         updateOptions(serverOptions);
       } catch (err) {
         console.error('Failed to load options:', err);
-        setError('Failed to load animation settings');
       }
     };
     loadOptions();
   }, [animationId, updateOptions]);
-
-  // Find canvas element when component mounts
-  useEffect(() => {
-    const findCanvas = () => {
-      const canvas = document.querySelector('canvas');
-      if (canvas) {
-        canvasRef.current = canvas;
-      }
-    };
-
-    // Try immediately and after a short delay
-    findCanvas();
-    const timeout = setTimeout(findCanvas, 1000);
-    return () => clearTimeout(timeout);
-  }, []);
 
   // Handlers
   const handleUploadComplete = useCallback((urls: string[]) => {
@@ -119,39 +108,8 @@ export default function AnimationClient({
       setImgList(prev => prev.filter(u => u !== url));
     } catch (err) {
       console.error('Failed to delete image:', err);
-      setError('Failed to delete image');
     }
   }, []);
-
-  const handleShare = useCallback(() => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
-    }
-  }, []);
-
-  const handleDownloadVideo = useCallback(() => {
-    if (!canvasRef.current) {
-      alert('Canvas not found. Please wait for the 3D scene to load.');
-      return;
-    }
-    startRecording(canvasRef.current);
-  }, [startRecording]);
-
-  const handleDeleteAnimation = useCallback(async () => {
-    if (!window.confirm('Are you sure you want to delete this animation and all its images? This cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await api.deleteAnimation(animationId);
-      document.cookie = `animation_${animationId}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      window.location.href = '/';
-    } catch (err) {
-      console.error('Failed to delete animation:', err);
-      setError('Failed to delete animation');
-    }
-  }, [animationId]);
 
   // Debug info (client-side only)
   if (typeof window !== 'undefined') {
@@ -164,142 +122,153 @@ export default function AnimationClient({
     });
   }
 
-  return (
-    <div className={styles.animationClientContainer}>
-      {/* Error Display */}
-      {error && (
-        <div className={styles.errorDisplay}>
-          {error}
-          <button
-            onClick={() => setError(null)}
-            className={styles.errorCloseButton}
-          >
-            ×
-          </button>
+  // Render 3D component
+  const render3DComponent = () => {
+    if (imgList.length === 0) {
+      return (
+        <div className={styles.emptyStateContainer}>
+          <div className={styles.emptyStateContent}>
+            <h2>No images yet</h2>
+            <p>Upload some images to create a 3D animation</p>
+            {isAuthor && (
+              <button 
+                className={styles.uploadButton}
+                onClick={() => handleOpenPanel('images')}
+              >
+                Upload Images
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      );
+    }
 
-      {/* Always Visible Toggle Buttons */}
-      <button
-        onClick={toggleLeftSidebar}
-        className={`${styles.toggleButton} ${leftSidebarOpen ? styles.toggleButtonLeftOpen : styles.toggleButtonLeft}`}
-        title={leftSidebarOpen ? 'Close Images' : 'Open Images'}
-      >
-        {leftSidebarOpen ? '✕' : '🖼️'}
-      </button>
+    // Wrap the 3D component in ThreeJSErrorBoundary for better error handling
+    return (
+      <ThreeJSErrorBoundary>
+        <Suspense fallback={<Loading3DScene />}>
+          <Images3DComponent
+            images={imgList}
+            options={options}
+          />
+        </Suspense>
+      </ThreeJSErrorBoundary>
+    );
+  };
 
-      <button
-        onClick={toggleRightSidebar}
-        className={`${styles.toggleButton} ${rightSidebarOpen ? styles.toggleButtonRightOpen : styles.toggleButtonRight}`}
-        title={rightSidebarOpen ? 'Close Controls' : 'Open Controls'}
-      >
-        {rightSidebarOpen ? '✕' : '⚙️'}
-      </button>
-
-      {/* 3D Scene */}
-      <Suspense fallback={<div>Loading animation...</div>}>
-        <Images3DComponent images={imgList} options={options} />
-      </Suspense>
-
-      {/* Left Sidebar: Image Management */}
+  return (
+    <div className={styles.container}>
+      {/* Main 3D scene rendered by the render3DComponent function */}
+      {render3DComponent()}
+      
+      {/* Control Buttons - Fixed positioned buttons to open panels */}
+      <div className={styles.controlButtons}>
+        {/* Images button */}
+        <button 
+          className={`${styles.controlButton} ${leftSidebarOpen ? styles.active : ''}`}
+          onClick={() => handleOpenPanel('images')}
+          title="Images & Upload"
+        >
+          🖼️
+        </button>
+        
+        {/* Controls button */}
+        <button 
+          className={`${styles.controlButton} ${rightSidebarOpen ? styles.active : ''}`}
+          onClick={() => handleOpenPanel('controls')}
+          title="Animation Controls"
+        >
+          ⚙️
+        </button>
+        
+        {/* Share button */}
+        <button 
+          className={styles.controlButton}
+          onClick={() => {
+            if (navigator.share) {
+              navigator.share({
+                title: 'GrayCAT Dreams - 3D Animation',
+                url: window.location.href
+              });
+            } else if (navigator.clipboard) {
+              navigator.clipboard.writeText(window.location.href);
+              alert('Link copied to clipboard!');
+            }
+          }}
+          title="Share Animation"
+        >
+          📤
+        </button>
+        
+        {/* Home button */}
+        <button 
+          className={styles.controlButton}
+          onClick={() => window.location.href = '/'}
+          title="Go to Home"
+        >
+          🏠
+        </button>
+      </div>
+      
+      {/* Left sidebar - Images and uploads */}
       {leftSidebarOpen && (
-        <div className={`${styles.sidebar} ${styles.sidebarLeft}`}>
-          <h3 className={styles.sidebarTitle}>
-            Images ({imgList.length})
-          </h3>
+        <div className={`${styles.sidebar} ${styles.leftSidebar}`}>
+          <h2>Images</h2>
+          <p className={styles.helperText}>Upload and manage images for animation</p>
           
-          {/* Upload Section (Authors Only) */}
           {isAuthor && (
-            <FileUpload
+            <FileUpload 
               onUploadComplete={handleUploadComplete}
               maxFiles={10}
             />
           )}
-
-          {/* Image Grid */}
-          <ImageGrid
-            images={imgList}
-            onDeleteImage={isAuthor ? handleDeleteImage : undefined}
-            showDeleteButton={isAuthor}
-          />
-
-          {/* Delete Animation Button (Authors Only) */}
-          {isAuthor && (
-            <button
-              onClick={handleDeleteAnimation}
-              className={styles.deleteButton}
-            >
-              🗑️ Delete Animation
-            </button>
-          )}
+          
+          <div className={styles.imageGridContainer}>
+            <ImageGrid 
+              images={imgList} 
+              onDeleteImage={isAuthor ? handleDeleteImage : undefined}
+              showDeleteButton={isAuthor}
+            />
+          </div>
+          
+          <button onClick={() => setOpenPanel(null)} className={styles.closeButton}>
+            ← Close
+          </button>
         </div>
       )}
-
-      {/* Right Sidebar: Controls */}
+      
+      {/* Right sidebar - Animation controls */}
       {rightSidebarOpen && (
-        <div className={`${styles.sidebar} ${styles.sidebarRight}`}>
-          <h3 className={styles.sidebarTitle}>
-            Controls
-          </h3>
-
-          {/* Share and Video Controls */}
-          <div className={styles.controlButtons}>
-            <button
-              onClick={handleShare}
-              className={styles.shareButton}
-              title="Copy shareable link"
-            >
-              📤 Share
-            </button>
-            <button
-              onClick={handleDownloadVideo}
-              disabled={recording}
-              className={`${styles.recordButton} ${recording ? styles.recordButtonDisabled : ''}`}
-              title="Download animation as video"
-            >
-              {recording ? '🔴 Recording...' : '📹 Record'}
-            </button>
-          </div>
-
-          {/* Video Download Link */}
-          {videoUrl && (
-            <a 
-              href={videoUrl} 
-              download="animation.webm" 
-              className={styles.videoDownloadLink}
-            >
-              ⬇️ Download Ready! Click here
-            </a>
-          )}
-
-          {/* Animation Options (Authors Only) */}
-          {isAuthor && imgList.length > 0 && (
-            <>
-              <AnimationOptionsForm
-                options={options}
-                onOptionChange={updateOptions}
-                imageCount={imgList.length}
-              />
-              {isSaving && (
-                <div className={styles.savingIndicator}>
-                  💾 Saving…
-                </div>
-              )}
-              {saveError && (
-                <div className={styles.saveError}>
-                  ❌ {saveError}
-                </div>
-              )}
-            </>
-          )}
-
-          {!isAuthor && (
-            <div className={styles.readOnlyNotice}>
-              👀 Viewing animation in read-only mode
+        <div className={`${styles.sidebar} ${styles.rightSidebar}`}>
+          <h2>Animation Controls</h2>
+          <p className={styles.helperText}>Customize your animation experience</p>
+          
+          <AnimationOptionsForm 
+            options={options}
+            onOptionChange={updateOptions}
+            imageCount={imgList.length}
+          />
+          
+          {isAuthor && (
+            <div style={{ marginTop: 24 }}>
+              <Suspense fallback={null}>
+                {/** Delete animation button for authors only */}
+                {typeof window !== 'undefined' && (
+                  <div>
+                    {/** Lazy load to avoid hydration mismatch if needed */}
+                    {React.createElement(require('./components/DeleteAnimationButton').default, { animationId })}
+                  </div>
+                )}
+              </Suspense>
             </div>
           )}
+          <button onClick={() => setOpenPanel(null)} className={styles.closeButton}>
+            → Close
+          </button>
         </div>
       )}
+
+      {/* Rest of your UI components... */}
     </div>
   );
 }

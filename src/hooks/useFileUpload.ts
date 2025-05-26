@@ -1,4 +1,7 @@
+"use client";
+
 import { useState, useCallback } from 'react';
+import { useAdmin } from '@/context/AdminContext';
 
 interface UseFileUploadResult {
   uploading: boolean;
@@ -8,16 +11,23 @@ interface UseFileUploadResult {
 }
 
 export function useFileUpload(
-  onUploadComplete?: (urls: string[]) => void
+  onUploadComplete?: (urls: string[]) => void,
+  customName?: string
 ): UseFileUploadResult {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Use the admin context
+  const { adminState } = useAdmin();
+  const { isAdmin } = adminState;
 
   const uploadFiles = useCallback(async (files: FileList | File[]): Promise<string[]> => {
     setUploading(true);
     setUploadError(null);
     
     try {
+      // Use the admin state directly from the context
+      const currentIsAdmin = isAdmin;
+      
       const formData = new FormData();
       Array.from(files).forEach((file) => {
         // Validate file type
@@ -32,6 +42,11 @@ export function useFileUpload(
         
         formData.append('file', file);
       });
+      
+      // Add custom name if provided and user is admin
+      if (currentIsAdmin && customName) {
+        formData.append('customName', customName);
+      }
 
       const response = await fetch('/api/upload', { 
         method: 'POST', 
@@ -55,7 +70,7 @@ export function useFileUpload(
     } finally {
       setUploading(false);
     }
-  }, [onUploadComplete]);
+  }, [onUploadComplete, isAdmin, customName]);
 
   const clearError = useCallback(() => {
     setUploadError(null);

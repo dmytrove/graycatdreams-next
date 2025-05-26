@@ -8,6 +8,7 @@ interface FileUploadProps {
   accept?: string;
   multiple?: boolean;
   maxFiles?: number;
+  customName?: string; // Add support for custom name (admin mode)
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
@@ -16,8 +17,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   accept = 'image/png,image/jpeg,image/webp',
   multiple = true,
   maxFiles = 10,
+  customName,
 }) => {
-  const { uploading, uploadError, uploadFiles, clearError } = useFileUpload(onUploadComplete);
+  const { uploading, uploadError, uploadFiles, clearError } = useFileUpload(onUploadComplete, customName);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -55,6 +57,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       />
       <label htmlFor="upload-input" className={styles.uploadLabel}>
         {uploading ? 'Uploading...' : 'Click or drag images here to upload'}
+        {customName && <span style={{ display: 'block', fontSize: '0.8em', opacity: 0.8 }}>Using custom name: {customName}</span>}
       </label>
       {uploadError && (
         <div className={styles.uploadError}>

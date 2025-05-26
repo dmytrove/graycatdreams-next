@@ -8,8 +8,25 @@ function uuidv4() {
   });
 }
 
+// Paths that should bypass the normal redirect logic
+const BYPASS_PATHS = [
+  '/admin',
+  '/api/admin'
+];
+
+// Check if a path should bypass the normal session handling
+function shouldBypassPath(pathname: string) {
+  return BYPASS_PATHS.some(path => pathname.startsWith(path));
+}
+
 export function middleware(request: NextRequest) {
   console.log('MIDDLEWARE RUNNING: path=', request.nextUrl.pathname);
+  
+  // Check if this is an admin path that should bypass normal redirects
+  if (shouldBypassPath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+  
   const sessionCookie = request.cookies.get('session_id');
   
   // If this is the root path, we'll need to redirect
